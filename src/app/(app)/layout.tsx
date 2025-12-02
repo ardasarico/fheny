@@ -1,3 +1,4 @@
+import PageHeader from '@/components/PageHeader';
 import Sidebar from '@/components/sidebar';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -5,7 +6,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <main className={'mr-18 flex h-full items-center justify-center'}>
       {' '}
       <Sidebar />
-      <div className={'h-full w-full max-w-[720px] border-x border-neutral-300'}>{children}</div>
+      <div className={'flex h-full w-full max-w-[720px] flex-col border-x border-neutral-300'}>
+        <PageHeader />
+        {children}
+      </div>
     </main>
   );
 }

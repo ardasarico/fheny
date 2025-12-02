@@ -30,7 +30,7 @@ const Sidebar = () => {
           <Link
             key={href}
             href={href}
-            className={`grid aspect-square w-full place-content-center rounded-md text-[28px] ${
+            className={`grid aspect-square w-full place-content-center rounded-sm text-[28px] ${
               isActive ? 'bg-neutral-300 text-neutral-700' : 'text-neutral-500'
             }`}
           >

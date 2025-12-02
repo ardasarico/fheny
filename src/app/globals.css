@@ -24,6 +24,7 @@ body {
 }
 
 body {
+  position: relative;
   font-family:
     'Inter Variable',
     -apple-system,
