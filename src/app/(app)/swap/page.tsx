@@ -1,5 +1,5 @@
 const Page = () => {
-  return <div>connectedapps</div>;
+  return <div>swap</div>;
 };
 
 export default Page;

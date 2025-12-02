@@ -4,6 +4,7 @@ import { Menu } from '@base-ui-components/react/menu';
 import IconChevronDown from '@icon/chevron-down.svg';
 import IconPencil from '@icon/pencil.svg';
 import IconPlus from '@icon/plus.svg';
+import Link from 'next/link';
 
 const accounts = [
   { id: 1, name: 'Main Wallet', color: '#6B7280' },
@@ -36,17 +37,21 @@ export default function AccountSelector() {
 
             <Menu.Separator className="mx-4 my-1 h-px bg-neutral-400" />
 
-            <Menu.Item className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm text-neutral-900 hover:bg-neutral-300">
-              <div className="grid aspect-square h-4 place-content-center">
-                <IconPlus />
-              </div>
-              New Account
+            <Menu.Item>
+              <Link href={'/create-wallet'} className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm text-neutral-900 hover:bg-neutral-300">
+                <div className="grid aspect-square h-4 place-content-center">
+                  <IconPlus className="text-neutral-700" />
+                </div>
+                Create Wallet
+              </Link>
             </Menu.Item>
-            <Menu.Item className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm text-neutral-900 hover:bg-neutral-300">
-              <div className="grid aspect-square h-4 place-content-center">
-                <IconPencil />
-              </div>
-              Edit Accounts
+            <Menu.Item>
+              <Link href={'/settings/wallets'} className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm text-neutral-900 hover:bg-neutral-300">
+                <div className="grid aspect-square h-4 place-content-center">
+                  <IconPencil className="text-neutral-700" />
+                </div>
+                Edit Wallets
+              </Link>
             </Menu.Item>
           </Menu.Popup>
         </Menu.Positioner>
