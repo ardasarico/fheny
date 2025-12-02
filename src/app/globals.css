@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-mono: 'Geist Mono', monospace;
+
+  --color-*: initial;
+  --color-neutral-100: #ffffff;
+  --color-neutral-200: #f8f9fa;
+  --color-neutral-300: #eceef0;
+  --color-neutral-400: #cdddd4;
+  --color-neutral-500: #b3b8bd;
+  --color-neutral-600: #94999e;
+  --color-neutral-700: #64676b;
+  --color-neutral-800: #232426;
+  --color-neutral-900: #000000;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  height: 100%;
+}
+
+body {
+  font-family:
+    'Inter Variable',
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  color: var(--color-neutral-800);
+  background: var(--color-neutral-100);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
