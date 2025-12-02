@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://test.com'),
+  metadataBase: new URL(process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://fheny.vercel.app'),
   title: 'Fheny Wallet',
   description: 'Secure and modern crypto wallet',
   openGraph: {
     title: 'Fheny Wallet',
-    url: 'https://test.com',
+    url: 'https://fheny.vercel.app',
     description: 'Secure and modern crypto wallet',
     images: [
       {
