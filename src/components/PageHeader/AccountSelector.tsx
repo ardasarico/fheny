@@ -1,9 +1,10 @@
 'use client';
 
-import { Menu } from '@base-ui-components/react/menu';
-import { useWalletStore } from '@/store/useWalletStore';
 import { getActiveWallet } from '@/lib/getActiveWallet';
 import { switchWallet } from '@/lib/switchWallet';
+import { useWalletStore } from '@/store/useWalletStore';
+import { Menu } from '@base-ui-components/react/menu';
+import { useEffect, useState } from 'react';
 
 //icons
 import IconChevronDown from '@icon/chevron-down.svg';
@@ -12,15 +13,30 @@ import IconPlus from '@icon/plus.svg';
 import Link from 'next/link';
 
 export default function AccountSelector() {
-  const wallets = useWalletStore((state) => state.wallets);
-  const activeWalletId = useWalletStore((state) => state.activeWalletId);
+  const [mounted, setMounted] = useState(false);
+  const wallets = useWalletStore(state => state.wallets);
+  const activeWalletId = useWalletStore(state => state.activeWalletId);
   const selected = getActiveWallet();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="flex h-full items-center gap-2 px-4">
+        <div className="h-4 w-4 rounded-sm bg-neutral-300" />
+        <div className="mr-3 h-4 w-20 animate-pulse rounded bg-neutral-300" />
+        <IconChevronDown className="text-neutral-600" />
+      </div>
+    );
+  }
 
   if (!selected && wallets.length === 0) {
     return null;
   }
 
-  const otherWallets = wallets.filter((w) => w.id !== activeWalletId);
+  const otherWallets = wallets.filter(w => w.id !== activeWalletId);
 
   const handleSwitchWallet = (id: string) => {
     switchWallet(id);
@@ -41,7 +57,7 @@ export default function AccountSelector() {
       <Menu.Portal>
         <Menu.Positioner align={'end'} style={{ minWidth: 'var(--anchor-width)' }}>
           <Menu.Popup className="border border-neutral-300 bg-neutral-200">
-            {otherWallets.map((wallet) => (
+            {otherWallets.map(wallet => (
               <Menu.Item
                 key={wallet.id}
                 onClick={() => handleSwitchWallet(wallet.id)}

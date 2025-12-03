@@ -16,7 +16,7 @@ const PageHeader = () => {
   const current = pages.find(p => p.url === pathname);
 
   return (
-    <div className="flex h-[48px] w-full items-center justify-between border-b border-neutral-300">
+    <div className="flex h-[48px] w-full flex-none items-center justify-between border-b border-neutral-300">
       <h1 className="pl-4 font-medium text-neutral-800">{current?.title ?? 'Page'}</h1>
 
       <AccountSelector />

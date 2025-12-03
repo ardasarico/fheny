@@ -1,7 +1,13 @@
-import { createWalletClient, createPublicClient, http, fallback } from 'viem';
+import { createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { sepolia } from 'viem/chains';
 import { getActiveWallet } from './getActiveWallet';
+
+const INFURA_API_KEY = process.env.NEXT_PUBLIC_INFURA_API_KEY;
+
+if (!INFURA_API_KEY) {
+  throw new Error('NEXT_PUBLIC_INFURA_API_KEY is not set');
+}
 
 export function getClient() {
   const active = getActiveWallet();
@@ -12,18 +18,13 @@ export function getClient() {
   return createWalletClient({
     account,
     chain: sepolia,
-    transport: http(),
+    transport: http(`https://sepolia.infura.io/v3/${INFURA_API_KEY}`),
   });
 }
 
 export function getPublicClient() {
-  // Use fallback transport with multiple RPC endpoints for reliability
   return createPublicClient({
     chain: sepolia,
-    transport: fallback([
-      http('https://rpc.sepolia.org'),
-      http('https://ethereum-sepolia-rpc.publicnode.com'),
-      http('https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161'), // Public Infura endpoint
-    ]),
+    transport: http(`https://sepolia.infura.io/v3/${INFURA_API_KEY}`),
   });
 }
