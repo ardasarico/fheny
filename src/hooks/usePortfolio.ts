@@ -10,7 +10,7 @@ const TEN_MINUTES_MS = 10 * 60 * 1000;
  * Prevents duplicate API calls by using React Query's caching
  */
 export function usePortfolio() {
-  const tokens = useTokenStore(state => state.tokens);
+  const tokens = useTokenStore(state => state.tokens).filter(t => t.tokenType === 'ERC20' || !t.tokenType);
   const activeWalletId = useWalletStore(state => state.activeWalletId);
 
   // Create a stable key from token addresses

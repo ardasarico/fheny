@@ -1,4 +1,4 @@
-export type TransactionCategory = 'external' | 'erc20' | 'erc721' | 'erc1155' | 'internal';
+export type TransactionCategory = 'external' | 'erc20' | 'erc721' | 'erc1155' | 'internal' | 'fherc20';
 export type TransactionDirection = 'in' | 'out';
 
 export interface Transaction {
@@ -18,6 +18,9 @@ export interface Transaction {
   tokenSymbol?: string;
   tokenLogo?: string;
   decimals?: number;
+  // Confidential token support
+  isConfidential?: boolean;
+  encryptedValue?: string;
 }
 
 // Alchemy API response types

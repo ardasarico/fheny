@@ -1,37 +1,29 @@
 'use client';
 
 import { useWalletStore } from '@/store/useWalletStore';
+import { CoFheInUint64, cofhejs, EncryptableUint64, Permit } from 'cofhejs/web';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
-
-// Types for cofhejs
-interface CofhePermit {
-  data: {
-    issuer: string;
-    getHash: () => string;
-  };
-}
 
 interface CofheState {
   isInitialized: boolean;
   isInitializing: boolean;
   error: string | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  cofhe: any | null;
+  cofhe: typeof cofhejs | null;
   currentWalletAddress: string | null;
 }
 
 interface CofheContextValue extends CofheState {
   initialize: () => Promise<void>;
-  createPermit: (issuer: string) => Promise<CofhePermit | null>;
-  getPermit: (issuer: string) => Promise<CofhePermit | null>;
-  unseal: (encryptedValue: bigint, fheType: number, issuer: string, permitHash: string) => Promise<bigint | null>;
-  encrypt: (values: unknown[]) => Promise<{ data: Uint8Array[] } | null>;
+  createPermit: (issuer: string) => Promise<Permit | null>;
+  getPermit: (issuer: string) => Promise<Permit | null>;
+  unseal: (encryptedValue: bigint, fheType: (typeof FheTypes)[keyof typeof FheTypes], issuer: string, permitHash: string) => Promise<bigint | null>;
+  encrypt: (values: EncryptableUint64[]) => Promise<CoFheInUint64[] | null>;
 }
 
 const CofheContext = createContext<CofheContextValue | null>(null);
 
 // Permit cache to avoid recreating permits
-const permitCache = new Map<string, CofhePermit>();
+const permitCache = new Map<string, Permit>();
 
 // FheTypes enum matching cofhejs
 export const FheTypes = {
@@ -146,7 +138,7 @@ export function CofheProvider({ children }: CofheProviderProps) {
   }, [activeWallet, state.currentWalletAddress, initialize]);
 
   const createPermit = useCallback(
-    async (issuer: string): Promise<CofhePermit | null> => {
+    async (issuer: string): Promise<Permit | null> => {
       if (!state.cofhe || !state.isInitialized) {
         console.error('cofhejs not initialized');
         return null;
@@ -165,10 +157,14 @@ export function CofheProvider({ children }: CofheProviderProps) {
           issuer,
         });
 
-        // Cache the permit
-        permitCache.set(cacheKey, permit);
+        if (!permit.data) {
+          return null;
+        }
 
-        return permit;
+        // Cache the permit
+        permitCache.set(cacheKey, permit.data);
+
+        return permit.data;
       } catch (error) {
         console.error('Failed to create permit:', error);
         return null;
@@ -178,7 +174,7 @@ export function CofheProvider({ children }: CofheProviderProps) {
   );
 
   const getPermit = useCallback(
-    async (issuer: string): Promise<CofhePermit | null> => {
+    async (issuer: string): Promise<Permit | null> => {
       // Check cache first
       const cacheKey = `${issuer.toLowerCase()}`;
       const cached = permitCache.get(cacheKey);
@@ -193,7 +189,7 @@ export function CofheProvider({ children }: CofheProviderProps) {
   );
 
   const unseal = useCallback(
-    async (encryptedValue: bigint, fheType: number, issuer: string, permitHash: string): Promise<bigint | null> => {
+    async (encryptedValue: bigint, fheType: (typeof FheTypes)[keyof typeof FheTypes], issuer: string, permitHash: string): Promise<bigint | null> => {
       if (!state.cofhe || !state.isInitialized) {
         console.error('cofhejs not initialized');
         return null;
@@ -203,7 +199,7 @@ export function CofheProvider({ children }: CofheProviderProps) {
         const { FheTypes: CofheFheTypes } = await import('cofhejs/web');
 
         // Map our FheTypes to cofhejs FheTypes
-        const fheTypeMap: Record<number, unknown> = {
+        const fheTypeMap: Record<(typeof FheTypes)[keyof typeof FheTypes], (typeof CofheFheTypes)[keyof typeof CofheFheTypes]> = {
           [FheTypes.Bool]: CofheFheTypes.Bool,
           [FheTypes.Uint8]: CofheFheTypes.Uint8,
           [FheTypes.Uint16]: CofheFheTypes.Uint16,
@@ -211,14 +207,19 @@ export function CofheProvider({ children }: CofheProviderProps) {
           [FheTypes.Uint64]: CofheFheTypes.Uint64,
           [FheTypes.Uint128]: CofheFheTypes.Uint128,
           [FheTypes.Uint256]: CofheFheTypes.Uint256,
-          [FheTypes.Address]: CofheFheTypes.Address,
+          [FheTypes.Address]: CofheFheTypes.Uint256,
         };
 
         const mappedType = fheTypeMap[fheType] || CofheFheTypes.Uint64;
 
         const unsealed = await state.cofhe.unseal(encryptedValue, mappedType, issuer, permitHash);
 
-        return unsealed;
+        if (unsealed.error || !unsealed.data) {
+          console.error('Unsealing error:', unsealed.error);
+          return null;
+        }
+
+        return BigInt(unsealed.data);
       } catch (error) {
         console.error('Failed to unseal value:', error);
         return null;
@@ -228,7 +229,7 @@ export function CofheProvider({ children }: CofheProviderProps) {
   );
 
   const encrypt = useCallback(
-    async (values: unknown[]): Promise<{ data: Uint8Array[] } | null> => {
+    async (values: EncryptableUint64[]): Promise<CoFheInUint64[] | null> => {
       if (!state.cofhe || !state.isInitialized) {
         console.error('cofhejs not initialized');
         return null;
@@ -236,7 +237,7 @@ export function CofheProvider({ children }: CofheProviderProps) {
 
       try {
         const encrypted = await state.cofhe.encrypt(values);
-        return encrypted;
+        return encrypted.data;
       } catch (error) {
         console.error('Failed to encrypt values:', error);
         return null;

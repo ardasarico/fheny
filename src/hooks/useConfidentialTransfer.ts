@@ -126,7 +126,7 @@ export function useConfidentialTransfer(): UseConfidentialTransferResult {
         // Encrypt the amount using cofhejs
         const encryptedResult = await cofhe.encrypt([Encryptable.uint64(amountRaw)]);
 
-        if (!encryptedResult || !encryptedResult.data || encryptedResult.data.length === 0) {
+        if (!encryptedResult || !encryptedResult.data) {
           throw new Error('Failed to encrypt transfer amount');
         }
 
@@ -281,7 +281,7 @@ export function useConfidentialApprove() {
         // Encrypt the amount
         const encryptedResult = await cofhe.encrypt([Encryptable.uint64(amountRaw)]);
 
-        if (!encryptedResult || !encryptedResult.data || encryptedResult.data.length === 0) {
+        if (!encryptedResult || !encryptedResult.data) {
           throw new Error('Failed to encrypt approval amount');
         }
 

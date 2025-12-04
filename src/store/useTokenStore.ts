@@ -8,8 +8,6 @@ export interface Token {
   symbol: string;
   decimals: number;
   addedAt: number;
-  /** @deprecated Use tokenType instead */
-  isConfidential?: boolean;
   /** Token type: 'ERC20' or 'FHERC20' */
   tokenType?: TokenType;
 }
@@ -54,12 +52,12 @@ export const useTokenStore = create<TokenState>()(
 
       getConfidentialTokens: () => {
         const { tokens } = get();
-        return tokens.filter(t => t.tokenType === 'FHERC20' || t.isConfidential);
+        return tokens.filter(t => t.tokenType === 'FHERC20');
       },
 
       getStandardTokens: () => {
         const { tokens } = get();
-        return tokens.filter(t => t.tokenType === 'ERC20' || (!t.tokenType && !t.isConfidential));
+        return tokens.filter(t => t.tokenType === 'ERC20' || !t.tokenType);
       },
     }),
     {

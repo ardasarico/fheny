@@ -90,6 +90,8 @@ export function useConfidentialBalance(tokenAddress: `0x${string}` | null, walle
       // Fetch encrypted balance
       const encryptedBalance = await getEncryptedBalance(tokenAddress, effectiveAddress as `0x${string}`);
 
+      console.log('Encrypted balance fetched:', encryptedBalance);
+
       if (encryptedBalance === 0n) {
         // Zero balance, no need to decrypt
         setBalance('0');
@@ -110,7 +112,9 @@ export function useConfidentialBalance(tokenAddress: `0x${string}` | null, walle
       }
 
       // Unseal the encrypted balance
-      const unsealedBalance = await unseal(encryptedBalance, FheTypesEnum.Uint64, permit.data.issuer, permit.data.getHash());
+      const unsealedBalance = await unseal(encryptedBalance, FheTypesEnum.Uint64, permit.issuer, permit.getHash());
+
+      console.log('Unsealed balance:', unsealedBalance);
 
       if (unsealedBalance === null) {
         throw new Error('Failed to unseal balance');
@@ -118,6 +122,8 @@ export function useConfidentialBalance(tokenAddress: `0x${string}` | null, walle
 
       // Format the balance
       const formattedBalance = formatUnits(unsealedBalance, tokenInfo.decimals);
+
+      console.log('Formatted balance:', formattedBalance);
 
       setBalance(formattedBalance);
       setBalanceRaw(unsealedBalance);
@@ -136,7 +142,7 @@ export function useConfidentialBalance(tokenAddress: `0x${string}` | null, walle
 
   // Fetch balance when dependencies change
   useEffect(() => {
-    if (tokenAddress && effectiveAddress) {
+    if (tokenAddress && effectiveAddress && isInitialized) {
       fetchBalance();
     }
   }, [tokenAddress, effectiveAddress, isInitialized]);

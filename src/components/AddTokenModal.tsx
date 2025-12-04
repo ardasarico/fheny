@@ -90,7 +90,6 @@ export default function AddTokenModal({ isOpen, onClose }: AddTokenModalProps) {
         decimals: tokenInfo.decimals,
         addedAt: Date.now(),
         tokenType,
-        isConfidential: tokenType === 'FHERC20',
       });
 
       setAddress('');
