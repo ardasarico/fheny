@@ -6,6 +6,8 @@ import { useTokenStore } from '@/store/useTokenStore';
 import { ConfidentialTokenListItem } from './ConfidentialTokenListItem';
 import TokenLogo from './TokenLogo';
 
+import IconCoins from '@icon/coins.svg';
+
 interface EthListItem {
   symbol: string;
   name: string;
@@ -15,6 +17,18 @@ interface EthListItem {
 }
 
 type TokenListItem = TokenWithPrice;
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-neutral-100 to-neutral-200">
+        <IconCoins className="h-8 w-8 text-neutral-400" />
+      </div>
+      <h3 className="mb-1 text-base font-semibold text-neutral-800">No tokens yet</h3>
+      <p className="max-w-xs text-sm text-neutral-500">Add tokens to track your portfolio</p>
+    </div>
+  );
+}
 
 export default function TokenList() {
   const { data, isLoading } = usePortfolio();
@@ -42,7 +56,7 @@ export default function TokenList() {
   }
 
   if (!data) {
-    return <div className="px-4 py-8 text-center text-neutral-500">No tokens found. Add tokens to see your portfolio.</div>;
+    return <EmptyState />;
   }
 
   // Build ETH item if we have ETH data
@@ -59,10 +73,8 @@ export default function TokenList() {
 
   const allTokens = [...(ethItem ? [ethItem] : []), ...data.tokens].sort((a, b) => b.usdValue - a.usdValue);
 
-  const hasTokens = allTokens.length > 0 || confidentialTokens.length > 0;
-
-  if (!hasTokens) {
-    return <div className="px-4 py-8 text-center text-neutral-500">No tokens found. Add tokens to see your portfolio.</div>;
+  if (allTokens.length === 0) {
+    return <EmptyState />;
   }
 
   return (

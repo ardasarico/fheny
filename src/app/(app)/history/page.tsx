@@ -6,20 +6,13 @@ import { formatTransactionDate, shortenAddress, useTransactionHistory } from '@/
 import { useTokenStore } from '@/store/useTokenStore';
 import { useWalletStore } from '@/store/useWalletStore';
 import type { Transaction } from '@/types/transaction';
+import IconAlertTriangle from '@icon/alert-triangle.svg';
+import IconDocument from '@icon/document.svg';
+import IconWallet from '@icon/wallet.svg';
 
 // Confidential transaction value display component
-function ConfidentialValue({ 
-  tx, 
-  isReceived 
-}: { 
-  tx: Transaction; 
-  isReceived: boolean;
-}) {
-  const { decryptedValue, isDecrypting, error } = useDecryptTransactionValue(
-    tx.encryptedValue,
-    tx.decimals || 18,
-    tx.contractAddress,
-  );
+function ConfidentialValue({ tx, isReceived }: { tx: Transaction; isReceived: boolean }) {
+  const { decryptedValue, isDecrypting, error } = useDecryptTransactionValue(tx.encryptedValue, tx.decimals || 18, tx.contractAddress);
 
   if (isDecrypting) {
     return (
@@ -31,17 +24,11 @@ function ConfidentialValue({
   }
 
   if (error) {
-    return (
-      <p className="text-xl font-semibold text-neutral-400">
-        🔒 Encrypted
-      </p>
-    );
+    return <p className="text-xl font-semibold text-neutral-400">🔒 Encrypted</p>;
   }
 
   const displayValue = decryptedValue || tx.value;
-  const formattedValue = parseFloat(displayValue).toFixed(
-    displayValue.includes('.') ? Math.min(displayValue.split('.')[1]?.length || 4, 6) : 0
-  );
+  const formattedValue = parseFloat(displayValue).toFixed(displayValue.includes('.') ? Math.min(displayValue.split('.')[1]?.length || 4, 6) : 0);
 
   return (
     <p className={`text-xl font-semibold ${isReceived ? 'text-[#00B100]' : 'text-neutral-600'}`}>
@@ -59,11 +46,10 @@ function TransactionItem({ tx }: { tx: Transaction }) {
 
   // Check if this transaction involves a confidential token
   const confidentialTokens = getConfidentialTokens();
-  const isConfidentialTx = tx.isConfidential || 
+  const isConfidentialTx =
+    tx.isConfidential ||
     tx.category === 'fherc20' ||
-    (tx.contractAddress && confidentialTokens.some(
-      t => t.address.toLowerCase() === tx.contractAddress?.toLowerCase()
-    ));
+    (tx.contractAddress && confidentialTokens.some(t => t.address.toLowerCase() === tx.contractAddress?.toLowerCase()));
 
   // Determine display text based on direction
   const actionText = isReceived ? 'Received from' : 'Sent to';
@@ -82,11 +68,7 @@ function TransactionItem({ tx }: { tx: Transaction }) {
           <p className="font-medium">
             {actionText} {shortenAddress(otherAddress)}
           </p>
-          {isConfidentialTx && (
-            <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-              Confidential
-            </span>
-          )}
+          {isConfidentialTx && <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">Confidential</span>}
         </div>
         <p className="text-sm text-neutral-500">
           {tx.tokenName || tx.asset} • {formatTransactionDate(tx.timestamp)}
@@ -124,14 +106,12 @@ function TransactionSkeleton() {
 // Empty state
 function EmptyState() {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-100">
-        <span className="text-4xl">📜</span>
+    <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+      <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br from-neutral-100 to-neutral-200">
+        <IconDocument className="h-12 w-12 text-neutral-400" />
       </div>
-      <div>
-        <h3 className="text-lg font-semibold text-neutral-800">No transactions yet</h3>
-        <p className="text-sm text-neutral-500">Your transaction history will appear here</p>
-      </div>
+      <h3 className="mb-2 text-xl font-semibold text-neutral-800">No transactions yet</h3>
+      <p className="max-w-xs text-sm text-neutral-500">Once you send or receive tokens, your transaction history will appear here.</p>
     </div>
   );
 }
@@ -139,17 +119,28 @@ function EmptyState() {
 // Error state
 function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-100">
-        <span className="text-4xl">⚠️</span>
+    <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+      <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br from-red-50 to-red-100">
+        <IconAlertTriangle className="h-12 w-12 text-red-400" />
       </div>
-      <div>
-        <h3 className="text-lg font-semibold text-neutral-800">Failed to load history</h3>
-        <p className="text-sm text-neutral-500">Please check your connection and try again</p>
-      </div>
-      <button onClick={onRetry} className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800">
+      <h3 className="mb-2 text-xl font-semibold text-neutral-800">Something went wrong</h3>
+      <p className="mb-6 max-w-xs text-sm text-neutral-500">We couldn&apos;t load your transaction history. Please try again.</p>
+      <button onClick={onRetry} className="rounded-lg bg-neutral-900 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800">
         Try Again
       </button>
+    </div>
+  );
+}
+
+// No wallet state
+function NoWalletState() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+      <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100">
+        <IconWallet className="h-12 w-12 text-blue-400" />
+      </div>
+      <h3 className="mb-2 text-xl font-semibold text-neutral-800">No wallet connected</h3>
+      <p className="max-w-xs text-sm text-neutral-500">Create or import a wallet to view your transaction history.</p>
     </div>
   );
 }
@@ -162,17 +153,7 @@ const Page = () => {
 
   // No wallet connected
   if (!activeWallet) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-100">
-          <span className="text-4xl">👛</span>
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-neutral-800">No wallet connected</h3>
-          <p className="text-sm text-neutral-500">Connect a wallet to view your transaction history</p>
-        </div>
-      </div>
-    );
+    return <NoWalletState />;
   }
 
   return (

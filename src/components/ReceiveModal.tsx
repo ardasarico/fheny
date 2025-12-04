@@ -2,6 +2,7 @@
 
 import { useWalletStore } from '@/store/useWalletStore';
 import { Dialog } from '@base-ui-components/react/dialog';
+import Image from 'next/image';
 import { useState } from 'react';
 import { Button } from './Button';
 
@@ -13,9 +14,7 @@ interface ReceiveModalProps {
 }
 
 export default function ReceiveModal({ isOpen, onClose }: ReceiveModalProps) {
-  const activeWallet = useWalletStore(state =>
-    state.wallets.find(w => w.id === state.activeWalletId)
-  );
+  const activeWallet = useWalletStore(state => state.wallets.find(w => w.id === state.activeWalletId));
   const [copied, setCopied] = useState(false);
 
   const handleOpenChange = (open: boolean) => {
@@ -34,53 +33,80 @@ export default function ReceiveModal({ isOpen, onClose }: ReceiveModalProps) {
     }
   };
 
+  const truncateAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
   return (
     <Dialog.Root open={isOpen} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-neutral-800/50 transition-opacity" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-neutral-100 p-6 shadow-xl">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-200">
-              <IconArrowInbox className="h-5 w-5 text-neutral-700" />
+        <Dialog.Popup className="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-neutral-100 p-6 shadow-xl">
+          {/* Header */}
+          <div className="mb-6 flex flex-col items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
+              <IconArrowInbox className="h-6 w-6 text-emerald-600" />
             </div>
-            <Dialog.Title className="text-xl font-semibold text-neutral-900">Receive</Dialog.Title>
+            <Dialog.Title className="text-xl font-semibold text-neutral-900">Receive Tokens</Dialog.Title>
+            <Dialog.Description className="text-center text-sm text-neutral-500">
+              Scan QR code or copy address below
+            </Dialog.Description>
           </div>
 
-          <Dialog.Description className="mb-4 text-sm text-neutral-600">
-            Share your address to receive tokens
-          </Dialog.Description>
-
-          <div className="flex flex-col items-center gap-4">
-            {/* QR Code Placeholder */}
-            <div className="flex h-40 w-40 items-center justify-center rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-200">
-              <span className="text-5xl">📱</span>
+          {/* QR Code */}
+          <div className="mb-6 flex justify-center">
+            <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+              {activeWallet?.address ? (
+                <Image
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${activeWallet.address}&bgcolor=ffffff&color=171717&margin=0`}
+                  alt="Wallet QR Code"
+                  width={180}
+                  height={180}
+                  className="rounded-lg"
+                  unoptimized
+                />
+              ) : (
+                <div className="flex h-[180px] w-[180px] items-center justify-center text-neutral-400">
+                  No wallet connected
+                </div>
+              )}
             </div>
+          </div>
 
-            <div className="w-full">
-              <p className="mb-2 text-center text-sm font-medium text-neutral-600">Your Wallet Address</p>
-              <div className="rounded-md bg-neutral-200 p-3">
-                <code className="block break-all text-center text-sm text-neutral-800">
-                  {activeWallet?.address || 'No wallet connected'}
-                </code>
+          {/* Address */}
+          {activeWallet?.address && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between rounded-lg bg-neutral-200/70 px-4 py-3">
+                <div className="flex flex-col">
+                  <span className="text-xs text-neutral-500">Wallet Address</span>
+                  <code className="font-mono text-sm font-medium text-neutral-800">
+                    {truncateAddress(activeWallet.address)}
+                  </code>
+                </div>
+                <button
+                  onClick={handleCopy}
+                  className="rounded-md bg-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-400"
+                >
+                  {copied ? '✓ Copied' : 'Copy'}
+                </button>
               </div>
             </div>
+          )}
 
-            <div className="flex w-full gap-3">
-              <Dialog.Close render={<Button type="button" variant="secondary" className="flex-1" />}>
-                Close
-              </Dialog.Close>
-              <Button type="button" onClick={handleCopy} className="flex-1">
-                {copied ? '✓ Copied!' : 'Copy Address'}
-              </Button>
-            </div>
+          {/* Actions */}
+          <div className="flex flex-col gap-3">
+            <Button type="button" onClick={handleCopy} className="w-full" disabled={!activeWallet?.address}>
+              {copied ? '✓ Address Copied!' : 'Copy Full Address'}
+            </Button>
+            <Dialog.Close render={<Button type="button" variant="secondary" className="w-full" />}>Close</Dialog.Close>
           </div>
 
-          <p className="mt-4 text-center text-xs text-neutral-500">
-            Only send Sepolia testnet tokens to this address
-          </p>
+          {/* Footer */}
+          <div className="mt-4 rounded-lg bg-amber-50 px-3 py-2">
+            <p className="text-center text-xs text-amber-700">⚠️ Only send Sepolia testnet tokens to this address</p>
+          </div>
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>
   );
 }
-
