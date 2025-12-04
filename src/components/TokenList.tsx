@@ -2,6 +2,8 @@
 
 import { usePortfolio } from '@/hooks/usePortfolio';
 import { TokenWithPrice } from '@/lib/calculateTotalValue';
+import { useState } from 'react';
+import SendModal from './SendModal';
 import TokenLogo from './TokenLogo';
 
 import IconCoins from '@icon/coins.svg';
@@ -30,6 +32,13 @@ function EmptyState() {
 
 export default function TokenList() {
   const { data, isLoading } = usePortfolio();
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [selectedTokenAddress, setSelectedTokenAddress] = useState<`0x${string}` | undefined>(undefined);
+
+  const handleTokenClick = (tokenAddress?: `0x${string}`) => {
+    setSelectedTokenAddress(tokenAddress);
+    setSendModalOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -74,41 +83,49 @@ export default function TokenList() {
   }
 
   return (
-    <div className="divide-y divide-neutral-200">
-      {allTokens.map((token, index) => {
-        const isEth = !('address' in token);
-        const key = isEth ? `ETH-${index}` : (token as TokenListItem).address;
-        const tokenAddress = isEth ? undefined : (token as TokenListItem).address;
+    <>
+      <div className="divide-y divide-neutral-200">
+        {allTokens.map((token, index) => {
+          const isEth = !('address' in token);
+          const key = isEth ? `ETH-${index}` : (token as TokenListItem).address;
+          const tokenAddress = isEth ? undefined : (token as TokenListItem).address;
 
-        return (
-          <div key={key} className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-50">
-            <TokenLogo symbol={token.symbol} address={tokenAddress} />
+          return (
+            <button
+              key={key}
+              onClick={() => handleTokenClick(tokenAddress)}
+              className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-neutral-300"
+            >
+              <TokenLogo symbol={token.symbol} address={tokenAddress} />
 
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-neutral-900">{token.symbol}</span>
-                <span className="text-sm text-neutral-500">{token.name}</span>
-              </div>
-              <div className="mt-0.5 text-sm text-neutral-600">
-                {parseFloat(token.balance).toLocaleString(undefined, {
-                  maximumFractionDigits: 6,
-                })}
-              </div>
-            </div>
-
-            <div className="text-right">
-              <div className="font-medium text-neutral-900">
-                ${token.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              {token.price > 0 && (
-                <div className="text-sm text-neutral-500">
-                  ${token.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-neutral-900">{token.symbol}</span>
+                  <span className="text-sm text-neutral-500">{token.name}</span>
                 </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
+                <div className="mt-0.5 text-sm text-neutral-600">
+                  {parseFloat(token.balance).toLocaleString(undefined, {
+                    maximumFractionDigits: 6,
+                  })}
+                </div>
+              </div>
+
+              <div className="text-right">
+                <div className="font-medium text-neutral-900">
+                  ${token.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                {token.price > 0 && (
+                  <div className="text-sm text-neutral-500">
+                    ${token.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                  </div>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <SendModal isOpen={sendModalOpen} onClose={() => setSendModalOpen(false)} defaultTokenAddress={selectedTokenAddress} />
+    </>
   );
 }
