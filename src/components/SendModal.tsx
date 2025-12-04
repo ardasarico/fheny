@@ -5,14 +5,18 @@ import { Menu } from '@base-ui-components/react/menu';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isAddress } from 'viem';
 
+import { useConfidentialTransfer } from '@/hooks/useConfidentialTransfer';
 import { usePortfolio } from '@/hooks/usePortfolio';
 import { estimateGas, GasEstimate } from '@/lib/estimateGas';
 import { sendToken, waitForTransaction } from '@/lib/sendToken';
+import { useTokenStore } from '@/store/useTokenStore';
 
 import { Button } from './Button';
 import { Input } from './Input';
 import TokenLogo from './TokenLogo';
 
+import { useConfidentialBalance } from '@/hooks';
+import { sleep } from '@/lib/utils';
 import IconArrowOutOfBox from '@icon/arrow-out-of-box.svg';
 import IconChevronDown from '@icon/chevron-down.svg';
 
@@ -29,10 +33,18 @@ interface TokenOption {
   name: string;
   balance: string;
   decimals: number;
+  isConfidential?: boolean;
 }
 
 export default function SendModal({ isOpen, onClose }: SendModalProps) {
   const { data: portfolio, refetch } = usePortfolio();
+  const { getConfidentialTokens } = useTokenStore();
+  const {
+    transfer: confidentialTransfer,
+    isPending: isConfidentialPending,
+    isConfirming: isConfidentialConfirming,
+    reset: resetConfidentialTransfer,
+  } = useConfidentialTransfer();
 
   // Form state
   const [selectedToken, setSelectedToken] = useState<TokenOption | null>(null);
@@ -46,37 +58,60 @@ export default function SendModal({ isOpen, onClose }: SendModalProps) {
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Build token options from portfolio (only tokens with balance > 0)
-  const tokenOptions = useMemo<TokenOption[]>(() => {
-    if (!portfolio) return [];
+  const {
+    balance: confidentialBalance,
+    isLoading,
+    isDecrypting,
+    error: confidentialBalanceError,
+    refetch: refetchConfidentialBalance,
+  } = useConfidentialBalance(selectedToken?.address || null);
 
+  // Build token options from portfolio (only tokens with balance > 0) + confidential tokens
+  const tokenOptions = useMemo<TokenOption[]>(() => {
     const options: TokenOption[] = [];
 
-    // Add ETH if balance > 0
-    if (portfolio.ethBalance && parseFloat(portfolio.ethBalance) > 0) {
-      options.push({
-        symbol: 'ETH',
-        name: 'Ethereum',
-        balance: portfolio.ethBalance,
-        decimals: 18,
+    if (portfolio) {
+      // Add ETH if balance > 0
+      if (portfolio.ethBalance && parseFloat(portfolio.ethBalance) > 0) {
+        options.push({
+          symbol: 'ETH',
+          name: 'Ethereum',
+          balance: portfolio.ethBalance,
+          decimals: 18,
+          isConfidential: false,
+        });
+      }
+
+      // Add ERC20 tokens with balance > 0
+      portfolio.tokens.forEach(token => {
+        if (parseFloat(token.balance) > 0) {
+          options.push({
+            address: token.address,
+            symbol: token.symbol,
+            name: token.name,
+            balance: token.balance,
+            decimals: token.decimals,
+            isConfidential: false,
+          });
+        }
       });
     }
 
-    // Add ERC20 tokens with balance > 0
-    portfolio.tokens.forEach(token => {
-      if (parseFloat(token.balance) > 0) {
-        options.push({
-          address: token.address,
-          symbol: token.symbol,
-          name: token.name,
-          balance: token.balance,
-          decimals: token.decimals,
-        });
-      }
+    // Add confidential tokens from token store
+    const confidentialTokens = getConfidentialTokens();
+    confidentialTokens.forEach(token => {
+      options.push({
+        address: token.address,
+        symbol: token.symbol,
+        name: token.name,
+        balance: '—', // Balance will be shown as encrypted
+        decimals: token.decimals,
+        isConfidential: true,
+      });
     });
 
     return options;
-  }, [portfolio]);
+  }, [portfolio, getConfidentialTokens]);
 
   // Set default token when options change (only if no token selected)
   useEffect(() => {
@@ -95,13 +130,21 @@ export default function SendModal({ isOpen, onClose }: SendModalProps) {
       setTxHash(null);
       setError(null);
       setSelectedToken(null);
+      resetConfidentialTransfer();
+      refetchConfidentialBalance();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Estimate gas when form is valid
+  // Estimate gas when form is valid (skip for confidential tokens)
   useEffect(() => {
     const estimate = async () => {
+      // Skip gas estimation for confidential tokens - set a dummy value
+      if (selectedToken?.isConfidential) {
+        setGasEstimate(null);
+        return;
+      }
+
       if (!selectedToken || !recipient || !amount || !isAddress(recipient)) {
         setGasEstimate(null);
         return;
@@ -137,14 +180,21 @@ export default function SendModal({ isOpen, onClose }: SendModalProps) {
   // Validation
   const isValidAddress = recipient ? isAddress(recipient) : true;
   const amountNum = parseFloat(amount) || 0;
-  const balanceNum = selectedToken ? parseFloat(selectedToken.balance) : 0;
-  const hasInsufficientBalance = amountNum > balanceNum;
+  const balanceNum =
+    selectedToken && !selectedToken.isConfidential
+      ? parseFloat(selectedToken.balance)
+      : selectedToken?.isConfidential && confidentialBalance
+        ? parseFloat(confidentialBalance)
+        : Infinity;
+  const hasInsufficientBalance = !selectedToken?.isConfidential && amountNum > balanceNum;
 
-  const canProceed = selectedToken && recipient && isAddress(recipient) && amount && amountNum > 0 && !hasInsufficientBalance && gasEstimate;
+  // For confidential tokens, we can't check balance so we just need valid inputs
+  const canProceed =
+    selectedToken && recipient && isAddress(recipient) && amount && amountNum > 0 && (selectedToken.isConfidential || (!hasInsufficientBalance && gasEstimate));
 
   // Handlers
   const handleMaxClick = useCallback(() => {
-    if (!selectedToken) return;
+    if (!selectedToken || selectedToken.isConfidential) return;
 
     let maxAmount = parseFloat(selectedToken.balance);
 
@@ -170,27 +220,43 @@ export default function SendModal({ isOpen, onClose }: SendModalProps) {
     setError(null);
 
     try {
-      const result = await sendToken({
-        to: recipient as `0x${string}`,
-        amount,
-        tokenAddress: selectedToken.address,
-        decimals: selectedToken.decimals,
-      });
+      // Handle confidential token transfer differently
+      if (selectedToken.isConfidential && selectedToken.address) {
+        const result = await confidentialTransfer(selectedToken.address, recipient as `0x${string}`, amount);
 
-      setTxHash(result.hash);
+        if (result) {
+          setTxHash(result.hash);
+          setStep('success');
+        } else {
+          throw new Error('Confidential transfer failed');
+        }
+      } else {
+        // Regular token transfer
+        const result = await sendToken({
+          to: recipient as `0x${string}`,
+          amount,
+          tokenAddress: selectedToken.address,
+          decimals: selectedToken.decimals,
+        });
 
-      // Wait for confirmation
-      await waitForTransaction(result.hash);
+        setTxHash(result.hash);
 
-      setStep('success');
+        // Wait for confirmation
+        await waitForTransaction(result.hash);
+
+        setStep('success');
+      }
+
       // Refetch portfolio to update balances
       refetch();
+      await sleep(5000); // wait a bit before refetching confidential balance
+      refetchConfidentialBalance();
     } catch (err) {
       console.error('Transaction failed:', err);
       setError(err instanceof Error ? err.message : 'Transaction failed');
       setStep('error');
     }
-  }, [selectedToken, recipient, amount, refetch]);
+  }, [selectedToken, recipient, amount, refetch, confidentialTransfer]);
 
   const handleClose = useCallback(() => {
     if (step !== 'pending') {
@@ -227,7 +293,7 @@ export default function SendModal({ isOpen, onClose }: SendModalProps) {
                 <div className="flex items-center gap-2">
                   <TokenLogo symbol={selectedToken.symbol} address={selectedToken.address} size="sm" />
                   <span className="font-medium">{selectedToken.symbol}</span>
-                  <span className="text-sm text-neutral-500">{parseFloat(selectedToken.balance).toLocaleString(undefined, { maximumFractionDigits: 6 })}</span>
+                  <span className="text-sm text-neutral-500">{balanceNum.toLocaleString(undefined, { maximumFractionDigits: 6 })}</span>
                 </div>
               ) : (
                 <span className="text-neutral-500">Select token</span>
@@ -244,11 +310,15 @@ export default function SendModal({ isOpen, onClose }: SendModalProps) {
                       <Menu.Item
                         key={token.address || 'ETH'}
                         onClick={() => setSelectedToken(token)}
-                        className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm hover:bg-neutral-100"
+                        className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm hover:bg-neutral-200"
                       >
                         <TokenLogo symbol={token.symbol} address={token.address} size="sm" />
                         <span className="font-medium">{token.symbol}</span>
-                        <span className="text-neutral-500">{parseFloat(token.balance).toLocaleString(undefined, { maximumFractionDigits: 6 })}</span>
+                        {token.isConfidential ? (
+                          <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-700">🔐 Confidential</span>
+                        ) : (
+                          <span className="text-neutral-500">{parseFloat(token.balance).toLocaleString(undefined, { maximumFractionDigits: 6 })}</span>
+                        )}
                       </Menu.Item>
                     ))
                   )}
@@ -257,6 +327,14 @@ export default function SendModal({ isOpen, onClose }: SendModalProps) {
             </Menu.Portal>
           </Menu.Root>
         </div>
+
+        {/* Confidential Token Notice */}
+        {selectedToken?.isConfidential && (
+          <div className="rounded-lg bg-purple-50 p-3 text-sm text-purple-800">
+            <strong>🔐 Confidential Transfer</strong>
+            <p className="mt-1">This is an encrypted transfer. The amount will be encrypted before sending.</p>
+          </div>
+        )}
 
         {/* Recipient Address */}
         <div>
@@ -283,26 +361,30 @@ export default function SendModal({ isOpen, onClose }: SendModalProps) {
               onChange={e => setAmount(e.target.value)}
               className={`flex-1 ${hasInsufficientBalance ? 'border-red-500 focus:border-red-500' : ''}`}
             />
-            <Button type="button" variant="secondary" onClick={handleMaxClick}>
-              MAX
-            </Button>
+            {!selectedToken?.isConfidential && (
+              <Button type="button" variant="secondary" onClick={handleMaxClick}>
+                MAX
+              </Button>
+            )}
           </div>
           {hasInsufficientBalance && <p className="mt-1 text-xs text-red-500">Insufficient balance</p>}
         </div>
 
-        {/* Gas Fee */}
-        <div className="flex items-center justify-between rounded-md bg-neutral-200 px-3 py-2 text-sm">
-          <span className="text-neutral-600">Network Fee</span>
-          <span className="text-neutral-800">
-            {isEstimating ? (
-              <span className="animate-pulse">Estimating...</span>
-            ) : gasEstimate ? (
-              `~${parseFloat(gasEstimate.estimatedFee).toFixed(6)} ETH`
-            ) : (
-              '-'
-            )}
-          </span>
-        </div>
+        {/* Gas Fee - hide for confidential tokens */}
+        {!selectedToken?.isConfidential && (
+          <div className="flex items-center justify-between rounded-md bg-neutral-200 px-3 py-2 text-sm">
+            <span className="text-neutral-600">Network Fee</span>
+            <span className="text-neutral-800">
+              {isEstimating ? (
+                <span className="animate-pulse">Estimating...</span>
+              ) : gasEstimate ? (
+                `~${parseFloat(gasEstimate.estimatedFee).toFixed(6)} ETH`
+              ) : (
+                '-'
+              )}
+            </span>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex gap-3 pt-2">
@@ -320,20 +402,23 @@ export default function SendModal({ isOpen, onClose }: SendModalProps) {
   const renderConfirmStep = () => (
     <>
       <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
-          <IconArrowOutOfBox className="h-5 w-5 text-amber-700" />
+        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${selectedToken?.isConfidential ? 'bg-purple-100' : 'bg-amber-100'}`}>
+          <IconArrowOutOfBox className={`h-5 w-5 ${selectedToken?.isConfidential ? 'text-purple-700' : 'text-amber-700'}`} />
         </div>
-        <Dialog.Title className="text-xl font-semibold text-neutral-900">Confirm Transaction</Dialog.Title>
+        <Dialog.Title className="text-xl font-semibold text-neutral-900">
+          {selectedToken?.isConfidential ? 'Confirm Confidential Transfer' : 'Confirm Transaction'}
+        </Dialog.Title>
       </div>
 
       <div className="space-y-4">
         {/* Summary */}
-        <div className="rounded-lg bg-neutral-100 p-4">
+        <div className={`rounded-lg p-4 ${selectedToken?.isConfidential ? 'bg-purple-50' : 'bg-neutral-100'}`}>
           <div className="mb-3 flex items-center justify-center gap-2">
             <TokenLogo symbol={selectedToken?.symbol || ''} address={selectedToken?.address} size="md" />
             <span className="text-2xl font-bold text-neutral-900">
               {amount} {selectedToken?.symbol}
             </span>
+            {selectedToken?.isConfidential && <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-700">🔐</span>}
           </div>
 
           <div className="space-y-2 text-sm">
@@ -343,14 +428,25 @@ export default function SendModal({ isOpen, onClose }: SendModalProps) {
                 {recipient.slice(0, 8)}...{recipient.slice(-6)}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-neutral-600">Network Fee</span>
-              <span className="text-neutral-900">~{parseFloat(gasEstimate?.estimatedFee || '0').toFixed(6)} ETH</span>
-            </div>
+            {!selectedToken?.isConfidential && (
+              <div className="flex justify-between">
+                <span className="text-neutral-600">Network Fee</span>
+                <span className="text-neutral-900">~{parseFloat(gasEstimate?.estimatedFee || '0').toFixed(6)} ETH</span>
+              </div>
+            )}
+            {selectedToken?.isConfidential && (
+              <div className="flex justify-between">
+                <span className="text-neutral-600">Transfer Type</span>
+                <span className="text-purple-700">🔐 Encrypted</span>
+              </div>
+            )}
           </div>
         </div>
 
-        <p className="text-center text-sm text-neutral-500">Please review the transaction details before confirming.</p>
+        {selectedToken?.isConfidential && (
+          <p className="text-center text-sm text-purple-600">The amount will be encrypted before sending to protect your privacy.</p>
+        )}
+        {!selectedToken?.isConfidential && <p className="text-center text-sm text-neutral-500">Please review the transaction details before confirming.</p>}
 
         {/* Action Buttons */}
         <div className="flex gap-3 pt-2">
@@ -358,7 +454,7 @@ export default function SendModal({ isOpen, onClose }: SendModalProps) {
             Back
           </Button>
           <Button type="button" className="flex-1" onClick={handleConfirm}>
-            Confirm & Send
+            {selectedToken?.isConfidential ? 'Encrypt & Send' : 'Confirm & Send'}
           </Button>
         </div>
       </div>

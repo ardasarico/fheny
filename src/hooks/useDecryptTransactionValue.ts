@@ -66,7 +66,7 @@ export function useDecryptTransactionValue(
       }
 
       // Unseal the encrypted value
-      const unsealed = await unseal(valueBigInt, FheTypesEnum.Uint64, permit.data.issuer, permit.data.getHash());
+      const unsealed = await unseal(valueBigInt, FheTypesEnum.Uint64, permit.issuer, permit.getHash());
 
       if (unsealed === null) {
         throw new Error('Failed to unseal value');
