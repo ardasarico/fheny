@@ -37,7 +37,8 @@ export const FheTypes = {
   Address: 7,
 } as const;
 
-const INFURA_API_KEY = process.env.NEXT_PUBLIC_INFURA_API_KEY;
+const ALCHEMY_API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
+const ALCHEMY_BASE_URL = `https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
 
 interface CofheProviderProps {
   children: ReactNode;
@@ -92,7 +93,7 @@ export function CofheProvider({ children }: CofheProviderProps) {
         const { Wallet, JsonRpcProvider } = await import('ethers');
 
         // Create ethers provider and signer from the active wallet
-        const provider = new JsonRpcProvider(`https://sepolia.infura.io/v3/${INFURA_API_KEY}`);
+        const provider = new JsonRpcProvider(ALCHEMY_BASE_URL);
         const wallet = new Wallet(activeWallet.privateKey, provider);
 
         // Initialize cofhejs with ethers
