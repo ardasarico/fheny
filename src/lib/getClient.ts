@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, http } from 'viem';
+import { Chain, createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { sepolia } from 'viem/chains';
 import { getActiveWallet } from './getActiveWallet';
@@ -12,7 +12,10 @@ function getAlchemyRpcUrl() {
   return `https://eth-sepolia.g.alchemy.com/v2/${apiKey}`;
 }
 
-export function getClient() {
+// Default to Sepolia, can be switched to Fhenix for FHERC20 tokens
+const defaultChain = sepolia;
+
+export function getClient(chain: Chain = defaultChain) {
   const active = getActiveWallet();
   if (!active) return null;
 
@@ -25,7 +28,7 @@ export function getClient() {
   });
 }
 
-export function getPublicClient() {
+export function getPublicClient(chain: Chain = defaultChain) {
   return createPublicClient({
     chain: sepolia,
     transport: http(getAlchemyRpcUrl()),

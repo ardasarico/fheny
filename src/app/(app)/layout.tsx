@@ -2,6 +2,7 @@
 
 import PageHeader from '@/components/PageHeader';
 import Sidebar from '@/components/sidebar';
+import { CofheProvider } from '@/hooks/useFhenixCofhe';
 import { useWalletStore } from '@/store/useWalletStore';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -44,12 +45,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <main className="mr-18 flex h-full items-center justify-center">
-      <Sidebar />
-      <div className="flex h-full w-full max-w-[720px] flex-col border-x border-neutral-300">
-        <PageHeader />
-        <div className="h-full w-full overflow-y-scroll">{children}</div>
-      </div>
-    </main>
+    <CofheProvider>
+      <main className="mr-18 flex h-full items-center justify-center">
+        <Sidebar />
+        <div className="flex h-full w-full max-w-[720px] flex-col border-x border-neutral-300">
+          <PageHeader />
+          <div className="h-full w-full overflow-y-scroll">{children}</div>
+        </div>
+      </main>
+    </CofheProvider>
   );
 }

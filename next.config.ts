@@ -15,6 +15,33 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Handle cofhejs node module imports in browser context and SVGs
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false,
+      };
+    }
+
+    // Handle SVG imports with @svgr/webpack
+    config.module.rules.push({
+      test: /\.svg$/,
+      use: [
+        {
+          loader: '@svgr/webpack',
+          options: {
+            icon: true,
+          },
+        },
+      ],
+    });
+
+    return config;
+  },
   turbopack: {
     rules: {
       '*.svg': {

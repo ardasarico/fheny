@@ -2,7 +2,9 @@
 
 import { usePortfolio } from '@/hooks/usePortfolio';
 import { TokenWithPrice } from '@/lib/calculateTotalValue';
+import { useTokenStore } from '@/store/useTokenStore';
 import { useState } from 'react';
+import { ConfidentialTokenListItem } from './ConfidentialTokenListItem';
 import SendModal from './SendModal';
 import TokenLogo from './TokenLogo';
 
@@ -32,6 +34,8 @@ function EmptyState() {
 
 export default function TokenList() {
   const { data, isLoading } = usePortfolio();
+  const { getConfidentialTokens } = useTokenStore();
+  const confidentialTokens = getConfidentialTokens();
   const [sendModalOpen, setSendModalOpen] = useState(false);
   const [selectedTokenAddress, setSelectedTokenAddress] = useState<`0x${string}` | undefined>(undefined);
 
@@ -123,6 +127,10 @@ export default function TokenList() {
             </button>
           );
         })}
+
+        {confidentialTokens.map(token => (
+          <ConfidentialTokenListItem key={token.address} token={token} />
+        ))}
       </div>
 
       <SendModal isOpen={sendModalOpen} onClose={() => setSendModalOpen(false)} defaultTokenAddress={selectedTokenAddress} />
