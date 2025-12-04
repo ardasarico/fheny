@@ -1,25 +1,15 @@
-import mockPortfolio from '@/data/mockPortfolio.json';
+import tokenData from '@/data/tokenData.json';
+import type { TokenDataConfig, TokenWithPrice, TotalValueResult } from '@/types/token';
 import { getActiveWallet } from './getActiveWallet';
 import { getBalance } from './getBalance';
 import { getTokenBalance, TokenInfo } from './getTokenBalance';
 
 const FALLBACK_TOKEN_PRICE_USD = 1;
 const DEFAULT_ETH_PRICE = 3000;
-const PORTFOLIO_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const PORTFOLIO_CACHE_TTL = process.env.NODE_ENV === 'development' ? 0 : 10 * 1000; // 10 seconds
 
-export interface TokenWithPrice extends TokenInfo {
-  usdValue: number;
-  price: number;
-}
-
-export interface TotalValueResult {
-  ethBalance: string;
-  ethUsdValue: number;
-  ethPrice: number;
-  tokens: TokenWithPrice[];
-  totalUsdValue: number;
-  lastUpdated: number;
-}
+// Re-export types for consumers
+export type { TokenWithPrice, TotalValueResult };
 
 interface PortfolioCacheEntry {
   walletId: string;
@@ -29,22 +19,8 @@ interface PortfolioCacheEntry {
 }
 
 const portfolioCache = new Map<string, PortfolioCacheEntry>();
-type MockPortfolioRecord = {
-  ethBalance?: string;
-  ethPrice?: number;
-  tokens?: MockPortfolioToken[];
-};
 
-interface MockPortfolioToken {
-  address: `0x${string}`;
-  symbol: string;
-  name: string;
-  decimals?: number;
-  balance?: string;
-  priceUsd?: number;
-}
-
-const portfolioData = mockPortfolio as Record<string, MockPortfolioRecord>;
+const config = tokenData as TokenDataConfig;
 
 function getTokenSignature(tokenAddresses: `0x${string}`[]): string {
   if (tokenAddresses.length === 0) return 'none';
@@ -59,15 +35,6 @@ function getCacheKey(walletId: string, tokenSignature: string) {
   return `${walletId}:${tokenSignature}`;
 }
 
-function getPortfolioForWallet(address?: string): MockPortfolioRecord {
-  if (!address) {
-    return portfolioData.default ?? { tokens: [] };
-  }
-
-  const key = address.toLowerCase();
-  return portfolioData[key] ?? portfolioData.default ?? { tokens: [] };
-}
-
 /**
  * Calculate total portfolio value in USD
  */
@@ -78,10 +45,7 @@ export async function calculateTotalValue(): Promise<TotalValueResult> {
 /**
  * Calculate total value with token list
  */
-export async function calculateTotalValueWithTokens(
-  tokenAddresses: `0x${string}`[],
-  options?: { force?: boolean },
-): Promise<TotalValueResult> {
+export async function calculateTotalValueWithTokens(tokenAddresses: `0x${string}`[], options?: { force?: boolean }): Promise<TotalValueResult> {
   const activeWallet = getActiveWallet();
 
   if (!activeWallet) {
@@ -104,31 +68,23 @@ export async function calculateTotalValueWithTokens(
     return cachedEntry.result;
   }
 
-  const portfolio = getPortfolioForWallet(activeWallet.address);
-  const ethPrice = portfolio.ethPrice ?? DEFAULT_ETH_PRICE;
+  const ethPrice = config.ethPrice ?? DEFAULT_ETH_PRICE;
+  const tokens = config.tokens ?? {};
 
   const ethBalance = (await getBalance()) ?? '0';
   const ethBalanceNum = parseFloat(ethBalance) || 0;
   const ethUsdValue = ethBalanceNum * ethPrice;
 
-  const priceMap = new Map<string, MockPortfolioToken>();
-  (portfolio.tokens ?? []).forEach(token => {
-    priceMap.set(token.address.toLowerCase(), token);
-  });
-
   const normalizedAddresses = Array.from(new Set(tokenAddresses.map(address => address.toLowerCase())));
 
-  const tokenBalances = await Promise.all(
-    normalizedAddresses.map(address =>
-      getTokenBalance(address as `0x${string}`).catch(() => null),
-    ),
-  );
+  const tokenBalances = await Promise.all(normalizedAddresses.map(address => getTokenBalance(address as `0x${string}`).catch(() => null)));
 
   const validTokens = tokenBalances.filter((token): token is TokenInfo => token !== null);
 
   const tokensWithPrice: TokenWithPrice[] = validTokens.map(token => {
-    const metadata = priceMap.get(token.address.toLowerCase());
-    const price = metadata?.priceUsd ?? FALLBACK_TOKEN_PRICE_USD;
+    const tokenConfig = tokens[token.address.toLowerCase()];
+    const price = tokenConfig?.price ?? FALLBACK_TOKEN_PRICE_USD;
+    const logo = tokenConfig?.logo;
     const balanceNum = parseFloat(token.balance) || 0;
     const usdValue = balanceNum * price;
 
@@ -136,6 +92,7 @@ export async function calculateTotalValueWithTokens(
       ...token,
       price,
       usdValue,
+      logo,
     };
   });
 
@@ -161,4 +118,3 @@ export async function calculateTotalValueWithTokens(
 
   return result;
 }
-

@@ -1,0 +1,13 @@
+{
+  "ethPrice": 3250,
+  "tokens": {
+    "0x64bc0baad7371ece4b6467715be75f3aa2fbbf0c": {
+      "price": 6.08,
+      "logo": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984/logo.png"
+    },
+    "0x7611c8cf42feaf2b13e3b3ae601fff385d251f35": {
+      "price": 192.8,
+      "logo": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9/logo.png"
+    }
+  }
+}
