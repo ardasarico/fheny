@@ -23,6 +23,7 @@ import IconChevronDown from '@icon/chevron-down.svg';
 interface SendModalProps {
   isOpen: boolean;
   onClose: () => void;
+  defaultTokenAddress?: `0x${string}`; // Pre-select token by address (undefined = ETH)
 }
 
 type ModalStep = 'input' | 'confirm' | 'pending' | 'success' | 'error';
@@ -36,7 +37,7 @@ interface TokenOption {
   isConfidential?: boolean;
 }
 
-export default function SendModal({ isOpen, onClose }: SendModalProps) {
+export default function SendModal({ isOpen, onClose, defaultTokenAddress }: SendModalProps) {
   const { data: portfolio, refetch } = usePortfolio();
   const { getConfidentialTokens } = useTokenStore();
   const {
@@ -116,9 +117,26 @@ export default function SendModal({ isOpen, onClose }: SendModalProps) {
   // Set default token when options change (only if no token selected)
   useEffect(() => {
     if (tokenOptions.length > 0 && !selectedToken) {
+      // If defaultTokenAddress is provided, find and select that token
+      if (defaultTokenAddress !== undefined) {
+        const defaultToken = tokenOptions.find(t => t.address?.toLowerCase() === defaultTokenAddress?.toLowerCase());
+        if (defaultToken) {
+          setSelectedToken(defaultToken);
+          return;
+        }
+      }
+      // If defaultTokenAddress is undefined (ETH) or not found, select first option
+      if (defaultTokenAddress === undefined) {
+        const ethToken = tokenOptions.find(t => !t.address);
+        if (ethToken) {
+          setSelectedToken(ethToken);
+          return;
+        }
+      }
+      // Fallback to first token
       setSelectedToken(tokenOptions[0]);
     }
-  }, [tokenOptions, selectedToken]);
+  }, [tokenOptions, selectedToken, defaultTokenAddress]);
 
   // Reset state only when modal opens (not when tokenOptions change)
   useEffect(() => {

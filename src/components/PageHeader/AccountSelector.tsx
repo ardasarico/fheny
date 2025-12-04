@@ -8,7 +8,6 @@ import { useEffect, useState } from 'react';
 
 //icons
 import IconChevronDown from '@icon/chevron-down.svg';
-import IconPencil from '@icon/pencil.svg';
 import IconPlus from '@icon/plus.svg';
 import Link from 'next/link';
 
@@ -76,14 +75,6 @@ export default function AccountSelector() {
                   <IconPlus className="text-neutral-700" />
                 </div>
                 Create Wallet
-              </Link>
-            </Menu.Item>
-            <Menu.Item>
-              <Link href={'/settings/wallets'} className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm text-neutral-900 hover:bg-neutral-300">
-                <div className="grid aspect-square h-4 place-content-center">
-                  <IconPencil className="text-neutral-700" />
-                </div>
-                Edit Wallets
               </Link>
             </Menu.Item>
           </Menu.Popup>
