@@ -1,38 +1,6 @@
-import { getPublicClient } from './getClient';
+import { erc20Abi, formatUnits, getAddress, isAddress } from 'viem';
 import { getActiveWallet } from './getActiveWallet';
-import { getAddress, isAddress, formatUnits } from 'viem';
-
-// ERC-20 Token ABI (sadece balanceOf ve decimals için)
-const ERC20_ABI = [
-  {
-    constant: true,
-    inputs: [{ name: '_owner', type: 'address' }],
-    name: 'balanceOf',
-    outputs: [{ name: 'balance', type: 'uint256' }],
-    type: 'function',
-  },
-  {
-    constant: true,
-    inputs: [],
-    name: 'decimals',
-    outputs: [{ name: '', type: 'uint8' }],
-    type: 'function',
-  },
-  {
-    constant: true,
-    inputs: [],
-    name: 'symbol',
-    outputs: [{ name: '', type: 'string' }],
-    type: 'function',
-  },
-  {
-    constant: true,
-    inputs: [],
-    name: 'name',
-    outputs: [{ name: '', type: 'string' }],
-    type: 'function',
-  },
-] as const;
+import { getPublicClient } from './getClient';
 
 export interface TokenInfo {
   address: `0x${string}`;
@@ -61,23 +29,23 @@ export async function getTokenBalance(tokenAddress: `0x${string}`): Promise<Toke
     const [balance, decimals, symbol, name] = await Promise.all([
       publicClient.readContract({
         address: normalizedTokenAddress,
-        abi: ERC20_ABI,
+        abi: erc20Abi,
         functionName: 'balanceOf',
         args: [normalizedWalletAddress],
       }),
       publicClient.readContract({
         address: normalizedTokenAddress,
-        abi: ERC20_ABI,
+        abi: erc20Abi,
         functionName: 'decimals',
       }),
       publicClient.readContract({
         address: normalizedTokenAddress,
-        abi: ERC20_ABI,
+        abi: erc20Abi,
         functionName: 'symbol',
       }),
       publicClient.readContract({
         address: normalizedTokenAddress,
-        abi: ERC20_ABI,
+        abi: erc20Abi,
         functionName: 'name',
       }),
     ]);
@@ -97,4 +65,3 @@ export async function getTokenBalance(tokenAddress: `0x${string}`): Promise<Toke
     throw error;
   }
 }
-

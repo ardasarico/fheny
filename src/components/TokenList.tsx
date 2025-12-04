@@ -4,6 +4,7 @@ import { calculateTotalValueWithTokens, TokenWithPrice } from '@/lib/calculateTo
 import { useTokenStore } from '@/store/useTokenStore';
 import { useWalletStore } from '@/store/useWalletStore';
 import { useEffect, useState } from 'react';
+import { ConfidentialTokenListItem } from './ConfidentialTokenListItem';
 
 interface EthListItem {
   symbol: string;
@@ -24,6 +25,10 @@ export default function TokenList() {
   const [ethData, setEthData] = useState<EthListItem | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Separate tokens by type
+  const standardTokens = tokens.filter(t => t.tokenType !== 'FHERC20' && !t.isConfidential);
+  const confidentialTokens = tokens.filter(t => t.tokenType === 'FHERC20' || t.isConfidential);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -31,8 +36,9 @@ export default function TokenList() {
       if (!isMounted) return;
       setLoading(true);
       try {
+        // Only load standard tokens through the regular flow
         const result = await calculateTotalValueWithTokens(
-          tokens.map(t => t.address),
+          standardTokens.map(t => t.address),
           { force },
         );
         if (!isMounted) return;
@@ -74,47 +80,74 @@ export default function TokenList() {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [tokens, activeWalletId]);
+  }, [standardTokens.length, activeWalletId]);
 
-  if (loading) {
+  if (loading && tokenData.length === 0 && confidentialTokens.length === 0) {
     return <div className="px-4 py-8 text-center text-neutral-600">Loading token balances...</div>;
   }
 
-  const allTokens = [...(ethData ? [ethData] : []), ...tokenData];
+  const hasTokens = ethData || tokenData.length > 0 || confidentialTokens.length > 0;
 
-  if (allTokens.length === 0) {
+  if (!hasTokens) {
     return <div className="px-4 py-8 text-center text-neutral-500">No tokens found. Add tokens to see your portfolio.</div>;
   }
 
   return (
     <div className="divide-y divide-neutral-200">
-      {allTokens.map((token, index) => {
-        const isEth = !('address' in token);
-        const key = isEth ? `ETH-${index}` : (token as TokenListItem).address;
-        return (
-          <div key={key} className="flex items-center justify-between px-4 py-3 hover:bg-neutral-50">
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-neutral-900">{token.symbol}</span>
-                <span className="text-sm text-neutral-500">{token.name}</span>
-              </div>
-              <div className="mt-1 text-sm text-neutral-600">
-                {parseFloat(token.balance).toLocaleString(undefined, {
-                  maximumFractionDigits: 6,
-                })}
-              </div>
+      {/* ETH Balance */}
+      {ethData && (
+        <div className="flex items-center justify-between px-4 py-3 hover:bg-neutral-50">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-neutral-900">{ethData.symbol}</span>
+              <span className="text-sm text-neutral-500">{ethData.name}</span>
             </div>
-            <div className="text-right">
-              <div className="font-medium text-neutral-900">
-                ${token.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              {token.price > 0 && (
-                <div className="text-sm text-neutral-500">${token.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</div>
-              )}
+            <div className="mt-1 text-sm text-neutral-600">
+              {parseFloat(ethData.balance).toLocaleString(undefined, {
+                maximumFractionDigits: 6,
+              })}
             </div>
           </div>
-        );
-      })}
+          <div className="text-right">
+            <div className="font-medium text-neutral-900">
+              ${ethData.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            {ethData.price > 0 && (
+              <div className="text-sm text-neutral-500">${ethData.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Standard ERC-20 Tokens */}
+      {tokenData.map(token => (
+        <div key={token.address} className="flex items-center justify-between px-4 py-3 hover:bg-neutral-50">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-neutral-900">{token.symbol}</span>
+              <span className="text-sm text-neutral-500">{token.name}</span>
+            </div>
+            <div className="mt-1 text-sm text-neutral-600">
+              {parseFloat(token.balance).toLocaleString(undefined, {
+                maximumFractionDigits: 6,
+              })}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="font-medium text-neutral-900">
+              ${token.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            {token.price > 0 && (
+              <div className="text-sm text-neutral-500">${token.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</div>
+            )}
+          </div>
+        </div>
+      ))}
+
+      {/* Confidential FHERC20 Tokens */}
+      {confidentialTokens.map(token => (
+        <ConfidentialTokenListItem key={token.address} token={token} />
+      ))}
     </div>
   );
 }
