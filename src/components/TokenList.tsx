@@ -129,7 +129,7 @@ export default function TokenList() {
         })}
 
         {confidentialTokens.map(token => (
-          <ConfidentialTokenListItem key={token.address} token={token} />
+          <ConfidentialTokenListItem key={token.address} token={token} handleTokenClick={handleTokenClick} />
         ))}
       </div>
 
