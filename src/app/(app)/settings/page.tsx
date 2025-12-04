@@ -2,7 +2,6 @@
 
 import AddTokenModal from '@/components/AddTokenModal';
 import { Button } from '@/components/Button';
-import { getActiveWallet } from '@/lib/getActiveWallet';
 import { useWalletStore } from '@/store/useWalletStore';
 import { useEffect, useState } from 'react';
 
@@ -10,8 +9,9 @@ export default function Settings() {
   const [mounted, setMounted] = useState(false);
   const [isAddTokenModalOpen, setIsAddTokenModalOpen] = useState(false);
   const wallets = useWalletStore(state => state.wallets);
-  const activeWalletId = useWalletStore(state => state.activeWalletId);
-  const activeWallet = getActiveWallet();
+  const activeWallet = useWalletStore(state => 
+    state.wallets.find(w => w.id === state.activeWalletId)
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -32,7 +32,7 @@ export default function Settings() {
 
       <div className={'flex flex-col gap-2'}>
         <h3 className={'text-lg font-medium text-neutral-800'}>Active Wallet ID</h3>
-        <p className={'font-mono text-sm text-neutral-700'}>{activeWalletId || 'No active wallet'}</p>
+        <p className={'font-mono text-sm text-neutral-700'}>{activeWallet?.id || 'No active wallet'}</p>
       </div>
 
       <div className={'flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm'}>

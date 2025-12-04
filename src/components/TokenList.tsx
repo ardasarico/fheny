@@ -1,10 +1,10 @@
 'use client';
 
-import { calculateTotalValueWithTokens, TokenWithPrice } from '@/lib/calculateTotalValue';
+import { usePortfolio } from '@/hooks/usePortfolio';
+import { TokenWithPrice } from '@/lib/calculateTotalValue';
 import { useTokenStore } from '@/store/useTokenStore';
-import { useWalletStore } from '@/store/useWalletStore';
-import { useEffect, useState } from 'react';
 import { ConfidentialTokenListItem } from './ConfidentialTokenListItem';
+import TokenLogo from './TokenLogo';
 
 interface EthListItem {
   symbol: string;
@@ -16,77 +16,50 @@ interface EthListItem {
 
 type TokenListItem = TokenWithPrice;
 
-const TEN_MINUTES_MS = 10 * 60 * 1000;
-
 export default function TokenList() {
-  const { tokens } = useTokenStore();
-  const activeWalletId = useWalletStore(state => state.activeWalletId);
-  const [tokenData, setTokenData] = useState<TokenListItem[]>([]);
-  const [ethData, setEthData] = useState<EthListItem | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading } = usePortfolio();
+  const { getConfidentialTokens } = useTokenStore();
+  const confidentialTokens = getConfidentialTokens();
 
-  // Separate tokens by type
-  const standardTokens = tokens.filter(t => t.tokenType !== 'FHERC20' && !t.isConfidential);
-  const confidentialTokens = tokens.filter(t => t.tokenType === 'FHERC20' || t.isConfidential);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadTokenData(force = false) {
-      if (!isMounted) return;
-      setLoading(true);
-      try {
-        // Only load standard tokens through the regular flow
-        const result = await calculateTotalValueWithTokens(
-          standardTokens.map(t => t.address),
-          { force },
-        );
-        if (!isMounted) return;
-
-        setEthData({
-          symbol: 'ETH',
-          name: 'Ethereum',
-          balance: result.ethBalance,
-          price: result.ethPrice,
-          usdValue: result.ethUsdValue,
-        });
-        setTokenData(result.tokens);
-      } catch (error) {
-        console.error('Error loading token data:', error);
-        if (!isMounted) return;
-        setEthData(null);
-        setTokenData([]);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    if (!activeWalletId) {
-      setEthData(null);
-      setTokenData([]);
-      setLoading(false);
-      return;
-    }
-
-    loadTokenData();
-
-    const interval = setInterval(() => {
-      loadTokenData(true);
-    }, TEN_MINUTES_MS);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [standardTokens.length, activeWalletId]);
-
-  if (loading && tokenData.length === 0 && confidentialTokens.length === 0) {
-    return <div className="px-4 py-8 text-center text-neutral-600">Loading token balances...</div>;
+  if (isLoading) {
+    return (
+      <div className="divide-y divide-neutral-200">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="flex animate-pulse items-center gap-3 px-4 py-3">
+            <div className="h-10 w-10 rounded-full bg-neutral-200" />
+            <div className="flex-1">
+              <div className="mb-1 h-4 w-20 rounded bg-neutral-200" />
+              <div className="h-3 w-16 rounded bg-neutral-200" />
+            </div>
+            <div className="text-right">
+              <div className="mb-1 h-4 w-16 rounded bg-neutral-200" />
+              <div className="h-3 w-12 rounded bg-neutral-200" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   }
 
-  const hasTokens = ethData || tokenData.length > 0 || confidentialTokens.length > 0;
+  if (!data) {
+    return <div className="px-4 py-8 text-center text-neutral-500">No tokens found. Add tokens to see your portfolio.</div>;
+  }
+
+  // Build ETH item if we have ETH data
+  const ethItem: EthListItem | null =
+    data.ethBalance && parseFloat(data.ethBalance) > 0
+      ? {
+          symbol: 'ETH',
+          name: 'Ethereum',
+          balance: data.ethBalance,
+          price: data.ethPrice,
+          usdValue: data.ethUsdValue,
+        }
+      : null;
+
+  const allTokens = [...(ethItem ? [ethItem] : []), ...data.tokens].sort((a, b) => b.usdValue - a.usdValue);
+
+  const hasTokens = allTokens.length > 0 || confidentialTokens.length > 0;
 
   if (!hasTokens) {
     return <div className="px-4 py-8 text-center text-neutral-500">No tokens found. Add tokens to see your portfolio.</div>;
@@ -94,55 +67,38 @@ export default function TokenList() {
 
   return (
     <div className="divide-y divide-neutral-200">
-      {/* ETH Balance */}
-      {ethData && (
-        <div className="flex items-center justify-between px-4 py-3 hover:bg-neutral-50">
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-neutral-900">{ethData.symbol}</span>
-              <span className="text-sm text-neutral-500">{ethData.name}</span>
-            </div>
-            <div className="mt-1 text-sm text-neutral-600">
-              {parseFloat(ethData.balance).toLocaleString(undefined, {
-                maximumFractionDigits: 6,
-              })}
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="font-medium text-neutral-900">
-              ${ethData.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            {ethData.price > 0 && (
-              <div className="text-sm text-neutral-500">${ethData.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</div>
-            )}
-          </div>
-        </div>
-      )}
+      {allTokens.map((token, index) => {
+        const isEth = !('address' in token);
+        const key = isEth ? `ETH-${index}` : (token as TokenListItem).address;
+        const tokenAddress = isEth ? undefined : (token as TokenListItem).address;
 
-      {/* Standard ERC-20 Tokens */}
-      {tokenData.map(token => (
-        <div key={token.address} className="flex items-center justify-between px-4 py-3 hover:bg-neutral-50">
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-neutral-900">{token.symbol}</span>
-              <span className="text-sm text-neutral-500">{token.name}</span>
+        return (
+          <div key={key} className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-50">
+            <TokenLogo symbol={token.symbol} address={tokenAddress} />
+
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-neutral-900">{token.symbol}</span>
+                <span className="text-sm text-neutral-500">{token.name}</span>
+              </div>
+              <div className="mt-0.5 text-sm text-neutral-600">
+                {parseFloat(token.balance).toLocaleString(undefined, {
+                  maximumFractionDigits: 6,
+                })}
+              </div>
             </div>
-            <div className="mt-1 text-sm text-neutral-600">
-              {parseFloat(token.balance).toLocaleString(undefined, {
-                maximumFractionDigits: 6,
-              })}
+
+            <div className="text-right">
+              <div className="font-medium text-neutral-900">
+                ${token.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              {token.price > 0 && (
+                <div className="text-sm text-neutral-500">${token.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</div>
+              )}
             </div>
           </div>
-          <div className="text-right">
-            <div className="font-medium text-neutral-900">
-              ${token.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            {token.price > 0 && (
-              <div className="text-sm text-neutral-500">${token.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</div>
-            )}
-          </div>
-        </div>
-      ))}
+        );
+      })}
 
       {/* Confidential FHERC20 Tokens */}
       {confidentialTokens.map(token => (
